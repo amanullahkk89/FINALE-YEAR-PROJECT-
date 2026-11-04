@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HomeHeal Demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap">
+<style>[hidden]{display:none!important}body{margin:0}
+/* Layout: top bar with role tabs; stage (phone frame or admin web panel) beside a live Socket.IO-style event log. */
+:root{
+  --bg:#eaf1f0; --surface:#ffffff; --ink:#0f2a2e; --muted:#587074; --line:#d3e1df;
+  --accent:#0b7a75; --accent-ink:#ffffff; --soft:#dcf0ee;
+  --warn:#a85a07; --warn-soft:#fdecd3; --ok:#177a3c; --ok-soft:#dcf3e3; --bad:#b3261e; --bad-soft:#fbe0dd;
+  --frame:#0f2a2e; --font-d:'Bricolage Grotesque',system-ui,sans-serif; --font-b:'Figtree',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0a1416; --surface:#122226; --ink:#e3f1ef; --muted:#8aa5a8; --line:#23393e;
+  --accent:#3fc1b8; --accent-ink:#04201f; --soft:#10383a;
+  --warn:#f0b36a; --warn-soft:#3a2a12; --ok:#6fd08c; --ok-soft:#14331f; --bad:#ff9a92; --bad-soft:#3d1a17; --frame:#1d3338; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0a1416; --surface:#122226; --ink:#e3f1ef; --muted:#8aa5a8; --line:#23393e;
+  --accent:#3fc1b8; --accent-ink:#04201f; --soft:#10383a;
+  --warn:#f0b36a; --warn-soft:#3a2a12; --ok:#6fd08c; --ok-soft:#14331f; --bad:#ff9a92; --bad-soft:#3d1a17; --frame:#1d3338; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.45;
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--font-d);margin:0;text-wrap:balance;line-height:1.15}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand h1{font-size:30px;font-weight:800;letter-spacing:-.02em}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;flex-wrap:wrap}
+.tabs button{border:0;background:none;padding:8px 16px;border-radius:9px;font-weight:600;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+@media(max-width:860px){.main{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;justify-content:center;min-width:0}
+/* phone */
+.phone{width:min(100%,370px);height:720px;background:var(--surface);border:10px solid var(--frame);border-radius:42px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.phone .bar{padding:14px 18px 10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+.phone .bar h2{font-size:18px}
+.phone .bar small{color:var(--muted)}
+.scroll{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.nav{display:flex;border-top:1px solid var(--line)}
+.nav button{flex:1;border:0;background:none;padding:10px 2px 12px;font-size:12px;font-weight:600;color:var(--muted)}
+.nav button[aria-selected="true"]{color:var(--accent);box-shadow:inset 0 2px 0 var(--accent)}
+.card{border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.muted{color:var(--muted);font-size:13px}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--soft);color:var(--accent)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:10px 14px;font-weight:600}
+.btn.ghost{background:none;color:var(--accent);border:1px solid var(--accent)}
+.btn.danger{background:var(--bad-soft);color:var(--bad)}
+.btn.sm{padding:6px 11px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.svc{border:1.5px solid var(--line);border-radius:12px;background:var(--surface);padding:10px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.svc b{font-size:14px}.svc[aria-pressed="true"]{border-color:var(--accent);background:var(--soft)}
+label.f{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px}
+textarea,input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px;width:100%}
+.map{width:100%;border-radius:12px;border:1px solid var(--line);background:var(--bg);display:block}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+.steps li{display:flex;gap:10px;align-items:flex-start;padding-bottom:12px;position:relative;color:var(--muted)}
+.steps li::before{content:"";width:12px;height:12px;border-radius:50%;border:2px solid var(--line);background:var(--surface);margin-top:4px;flex:none;z-index:1}
+.steps li:not(:last-child)::after{content:"";position:absolute;left:5px;top:18px;bottom:-2px;width:2px;background:var(--line)}
+.steps li.done{color:var(--ink)}.steps li.done::before{background:var(--accent);border-color:var(--accent)}
+.steps li.now{color:var(--ink);font-weight:600}.steps li.now::before{border-color:var(--accent);box-shadow:0 0 0 4px var(--soft)}
+.chat{display:flex;flex-direction:column;gap:8px}
+.msg{max-width:85%;padding:8px 12px;border-radius:14px;font-size:14px}
+.msg.bot{background:var(--soft);align-self:flex-start;border-bottom-left-radius:4px}
+.msg.me{background:var(--accent);color:var(--accent-ink);align-self:flex-end;border-bottom-right-radius:4px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 11px;font-size:13px}
+.chatin{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--line)}
+.toggle{display:flex;align-items:center;gap:8px;font-weight:600}
+.sw{width:42px;height:24px;border-radius:99px;background:var(--line);border:0;position:relative;padding:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--surface);transition:left .15s}
+.sw[aria-checked="true"]{background:var(--accent)}.sw[aria-checked="true"]::after{left:21px}
+/* log panel */
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.panel h3{font-size:15px;margin-bottom:8px}
+.log{font-family:ui-monospace,Menlo,monospace;font-size:12px;display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto}
+.log div{display:flex;gap:8px;flex-wrap:wrap}.log time{color:var(--muted)}.log b{color:var(--accent)}
+.stack{display:flex;flex-wrap:wrap;gap:6px}
+.stack span{border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:12px}
+/* admin */
+.web{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0}
+.web .chrome{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);align-items:center}
+.web .chrome i{width:10px;height:10px;border-radius:50%;background:var(--line)}
+.web .chrome span{margin-left:10px;color:var(--muted);font-size:12px}
+.web .body{padding:16px;display:flex;flex-direction:column;gap:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stat b{font-family:var(--font-d);font-size:26px;display:block;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+/* about */
+.about{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;width:100%}
+.about .panel{display:flex;flex-direction:column;gap:6px}
+.about ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.flow span{background:var(--soft);color:var(--accent);padding:4px 10px;border-radius:8px;font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:24px 8px}
+.login{width:min(100%,420px);background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px;display:flex;flex-direction:column;gap:14px;margin-block:12px}
+.login h2{font-size:24px}
+.login form{display:flex;flex-direction:column;gap:12px}
+.login .err{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:8px 10px;font-size:13px}
+.demo{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.demo button{text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.demo code{font-size:12px;color:var(--muted)}
+.signout{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:600}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head><body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Home<span>Heal</span></h1>
+      <p>Smart home healthcare, on demand. Verified nurses and doctors, tracked to your door.</p>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+  </header>
+  <div class="main">
+    <div class="stage" id="stage"></div>
+    <aside class="side" id="side"></aside>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const STEPS=[['pending','Request sent'],['accepted','Nurse accepted'],['enroute','Nurse on the way'],['arrived','Nurse arrived'],['completed','Care completed']];
+const SERVICES=[['Drip setup','IV drip at home'],['Injection','IM / IV injection'],['Wound dressing','Clean and re-dress'],['Doctor visit','Home consultation']];
+const HOSPITALS=[
+ {n:'East-City Hospital',d:1.2,nurses:5,docs:3,wait:8,x:70,y:70},
+ {n:'East-City Clinic, Gulshan',d:2.4,nurses:2,docs:1,wait:15,x:190,y:40},
+ {n:'East-City Care Center, Nazimabad',d:4.1,nurses:0,docs:2,wait:25,x:260,y:90}];
+const S={
+ role:'patient', tab:'home', svc:'Drip setup', notes:'', travel:0, nurseOn:true, timer:null,
+ req:[{id:101,who:'Example patient (Ali R.)',svc:'Wound dressing',notes:'Diabetic, dressing on left foot',status:'pending',nurse:null,mine:false,at:Date.now()}],
+ lic:[{id:1,name:'Sana Raza',role:'Nurse',no:'PNC-48213',st:'verified'},{id:2,name:'Dr Imran Qazi',role:'Doctor',no:'PMDC-77120',st:'verified'},
+      {id:3,name:'Hina Baig',role:'Nurse',no:'PNC-50977',st:'pending'},{id:4,name:'Bilal Ahmed',role:'Nurse',no:'PNC-51340',st:'pending'}],
+ user:null, loginErr:'', loginEmail:'', log:[], chat:[{b:1,t:'Hi, I am the HomeHeal assistant. I can help you submit a request or explain how the app works.'}], nextId:102
+};
+const ME='Sana Raza';
+function log(ev,info){const t=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});S.log.unshift({t,ev,info});S.log=S.log.slice(0,30)}
+const mine=()=>S.req.filter(r=>r.mine).slice(-1)[0];
+const job=()=>S.req.find(r=>r.nurse===ME&&r.status!=='completed');
+const idx=s=>STEPS.findIndex(x=>x[0]===s);
+
+function mapSVG(p,showNurse){
+  const U={x:230,y:140},A={x:50,y:40},B={x:50,y:140};
+  let n=null;if(showNurse){const L=100+180,d=p*L; n=d<=100?{x:A.x,y:A.y+d}:{x:B.x+(d-100),y:B.y}}
+  return `<svg class="map" viewBox="0 0 300 190" role="img" aria-label="Map showing your location, hospitals and nurse position">
+  <g stroke="var(--line)" stroke-width="10" stroke-linecap="round" fill="none"><path d="M20 40H290M20 140H290M50 10V180M150 10V180M230 10V180"/></g>
+  <g stroke="var(--surface)" stroke-width="1.5" stroke-dasharray="5 6" fill="none"><path d="M20 40H290M20 140H290M50 10V180M150 10V180M230 10V180"/></g>
+  ${showNurse?`<path d="M50 40V140H230" stroke="var(--accent)" stroke-width="3" fill="none" stroke-dasharray="2 6" stroke-linecap="round"/>`:''}
+  ${HOSPITALS.map(h=>`<g><rect x="${h.x-9}" y="${h.y-9}" width="18" height="18" rx="4" fill="var(--bad)"/><path d="M${h.x-5} ${h.y}H${h.x+5}M${h.x} ${h.y-5}V${h.y+5}" stroke="#fff" stroke-width="2.4"/></g>`).join('')}
+  <circle cx="${U.x}" cy="${U.y}" r="14" fill="var(--accent)" opacity=".18"/><circle cx="${U.x}" cy="${U.y}" r="6" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+  <text x="${U.x}" y="${U.y+24}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--ink)">You</text>
+  ${n?`<circle cx="${n.x}" cy="${n.y}" r="8" fill="var(--warn)" stroke="var(--surface)" stroke-width="2"/><text x="${n.x}" y="${n.y-12}" text-anchor="middle" font-size="9" font-weight="600" fill="var(--ink)">Nurse</text>`:''}
+  </svg>`}
+
+/* ---------- Patient ---------- */
+function patient(){
+  const r=mine(); let body='';
+  if(S.tab==='home'){
+    body=`<div class="muted">Near Gulshan-e-Iqbal, Block 13 (demo location)</div>${mapSVG(0,false)}
+    ${HOSPITALS.map(h=>`<div class="card"><div class="row"><b>${h.n}</b><span class="pill ${h.nurses?'ok':'bad'}">${h.nurses?'Available':'No nurses'}</span></div>
+    <div class="muted">${h.d} km away · ${h.nurses} nurses · ${h.docs} doctors on duty · ~${h.wait} min wait</div></div>`).join('')}`;
+  }
+  if(S.tab==='request'){
+    body=`<b>What care do you need?</b><div class="grid2">${SERVICES.map(([a,b])=>`<button class="svc" data-act="svc" data-v="${a}" aria-pressed="${S.svc===a}"><b>${a}</b><span class="muted">${b}</span></button>`).join('')}</div>
+    <label class="f" for="notes">Notes and allergies<textarea id="notes" rows="3" placeholder="e.g. allergic to penicillin">${esc(S.notes)}</textarea></label>
+    <div class="card"><div class="row"><span class="muted">Your location</span><span class="pill">GPS shared</span></div><b>Gulshan-e-Iqbal, Block 13, Karachi</b></div>
+    <button class="btn" data-act="submit" ${r&&r.status!=='completed'?'disabled':''}>${r&&r.status!=='completed'?'Request already active':'Send request'}</button>`;
+  }
+  if(S.tab==='track'){
+    if(!r) body=`<div class="empty">No active request yet.<br>Send one from the Request tab.</div>`;
+    else{
+      const i=idx(r.status), eta=Math.ceil((1-S.travel)*10);
+      body=`<div class="card"><div class="row"><b>${r.svc}</b><span class="pill ${r.status==='completed'?'ok':'warn'}">${STEPS[i][1]}</span></div>
+      ${r.status==='pending'?'<div class="muted">Broadcast to verified nurses nearby. Waiting for acceptance.</div>':''}
+      ${r.nurse?`<div class="row"><div><b>${r.nurse}</b> <span class="pill ok">Verified</span><div class="muted">Reg. nurse, PNC-48213</div></div>${r.status==='enroute'?`<div style="text-align:right"><b style="font-size:22px">${eta}</b><div class="muted">min away</div></div>`:''}</div>`:''}</div>
+      ${mapSVG(S.travel,['enroute','arrived','accepted'].includes(r.status)||r.status==='completed')}
+      <ul class="steps">${STEPS.map((s,k)=>`<li class="${k<i||r.status==='completed'?'done':k===i?'now':''}">${s[1]}</li>`).join('')}</ul>
+      ${r.status==='pending'?'<button class="btn danger" data-act="cancel">Cancel request</button>':''}
+      ${r.status==='completed'?'<div class="card"><b>How was your care?</b><div class="muted">Rating screen appears here (UAT target: over 90% satisfaction).</div></div>':''}`;
+    }
+  }
+  if(S.tab==='bot'){
+    body=`<div class="chat" id="chat">${S.chat.map(m=>`<div class="msg ${m.b?'bot':'me'}">${esc(m.t)}</div>`).join('')}</div>
+    <div class="chips">${['How do I request a nurse?','Are nurses verified?','What services are offered?','Can you diagnose me?'].map(q=>`<button data-act="ask" data-v="${q}">${q}</button>`).join('')}</div>`;
+  }
+  return phone('Patient',S.tab==='bot'?'AI assistant':'HomeHeal',body,[['home','Hospitals'],['request','Request'],['track','Track'],['bot','Assistant']],S.tab==='bot');
+}
+function phone(role,title,body,nav,chatbar){
+  return `<div class="phone"><div class="bar"><div><h2>${title}</h2><small>${role} app</small></div><span class="pill ok">Live</span></div>
+  <div class="scroll" id="scr">${body}</div>
+  ${chatbar?`<form class="chatin" id="chatform"><input type="text" id="chatq" placeholder="Ask the assistant" aria-label="Message"><button class="btn sm" type="submit">Send</button></form>`:''}
+  <div class="nav" role="tablist">${nav.map(([k,l])=>`<button role="tab" data-act="tab" data-v="${k}" aria-selected="${S.tab===k}">${l}</button>`).join('')}</div></div>`;
+}
+const BOT=[[/diagnos|treat|medicine|prescri/,'I cannot diagnose or recommend treatment. That is outside HomeHeal. A verified doctor can assess you after you submit a Doctor visit request.'],
+ [/verif|licen|trust|qualif/,'Every nurse and doctor uploads a licence that a hospital admin reviews. Only verified staff can see and accept your request.'],
+ [/servic|drip|inject|wound|offer/,'You can request a drip setup, an injection, wound dressing, or a doctor home visit.'],
+ [/request|nurse|book|how/,'Open the Request tab, pick a service, add notes or allergies and tap Send request. Nearby verified nurses are notified within seconds.'],
+ [/track|status|where|eta/,'Open the Track tab to see the request status, the nurse identity and the estimated arrival time.'],
+ [/cost|price|pay|bill/,'Billing and insurance are not part of the first phase. The hospital will confirm any charges.']];
+function ask(q){S.chat.push({t:q});const hit=BOT.find(([re])=>re.test(q.toLowerCase()));S.chat.push({b:1,t:hit?hit[1]:'I can help with submitting a request, services, staff verification and tracking. Try asking about one of those.'});log('chatbot:query',q.slice(0,30));render();const c=$('#scr');if(c)c.scrollTop=c.scrollHeight}
+
+/* ---------- Nurse ---------- */
+function nurse(){
+  const j=job(); let body='';
+  if(S.tab==='home'||!['home','profile'].includes(S.tab)) S.tab='home';
+  if(S.tab==='home'){
+    body=`<div class="card"><div class="row"><div><b>${ME}</b> <span class="pill ok">Verified</span><div class="muted">PNC-48213 · East-City Hospital</div></div></div>
+    <div class="row"><span class="toggle">Available for requests</span><button class="sw" role="switch" aria-label="Available" aria-checked="${S.nurseOn}" data-act="avail"></button></div></div>`;
+    if(j){
+      const i=idx(j.status), nxt=STEPS[i+1];
+      body+=`<b>Active job</b><div class="card"><div class="row"><b>${j.svc}</b><span class="pill warn">${STEPS[i][1]}</span></div>
+      <div class="muted">${esc(j.who)} · Gulshan-e-Iqbal, Block 13${j.notes?'<br>Notes: '+esc(j.notes):''}</div>
+      ${nxt?`<button class="btn" data-act="adv" data-v="${j.id}">${{enroute:'Start travel',arrived:'Mark arrived',completed:'Mark completed'}[nxt[0]]}</button>`:''}</div>`;
+    } else if(!S.nurseOn) body+=`<div class="empty">You are offline. Turn on availability to receive requests.</div>`;
+    else{
+      const p=S.req.filter(r=>r.status==='pending');
+      body+=`<b>Incoming requests</b>`+(p.length?p.map(r=>`<div class="card"><div class="row"><b>${r.svc}</b><span class="pill warn">New</span></div>
+      <div class="muted">${esc(r.who)} · 1.8 km away${r.notes?'<br>Notes: '+esc(r.notes):''}</div>
+      <button class="btn" data-act="accept" data-v="${r.id}">Accept</button></div>`).join(''):`<div class="empty">No pending requests nearby.</div>`);
+    }
+    body+=`<button class="btn ghost sm" data-act="sim">Demo: simulate another patient request</button>`;
+  } else body=`<div class="card"><b>Licence</b><div class="muted">PNC-48213 · verified by East-City admin</div></div>`;
+  return phone('Nurse','Nurse dashboard',body,[['home','Requests'],['profile','Profile']]);
+}
+
+/* ---------- Admin ---------- */
+function admin(){
+  const act=S.req.filter(r=>r.status!=='completed').length, done=S.req.filter(r=>r.status==='completed').length;
+  const ver=S.lic.filter(l=>l.st==='verified').length, pend=S.lic.filter(l=>l.st==='pending');
+  return `<div class="web"><div class="chrome"><i></i><i></i><i></i><span>homeheal.eastcity.example / admin</span></div><div class="body">
+  <h2>Hospital admin dashboard</h2>
+  <div class="stats"><div class="stat"><b>${act}</b><span class="muted">Active requests</span></div><div class="stat"><b>${done}</b><span class="muted">Completed</span></div>
+  <div class="stat"><b>${ver}</b><span class="muted">Verified staff</span></div><div class="stat"><b>${pend.length}</b><span class="muted">Awaiting review</span></div></div>
+  <div><h3>Licence review queue</h3><div class="tbl"><table><thead><tr><th>Name</th><th>Role</th><th>Licence no.</th><th>Status</th><th></th></tr></thead><tbody>
+  ${S.lic.map(l=>`<tr><td>${l.name}</td><td>${l.role}</td><td>${l.no}</td><td><span class="pill ${l.st==='verified'?'ok':l.st==='rejected'?'bad':'warn'}">${l.st}</span></td>
+  <td>${l.st==='pending'?`<button class="btn sm" data-act="ver" data-v="${l.id}">Approve</button> <button class="btn sm danger" data-act="rej" data-v="${l.id}">Reject</button>`:''}</td></tr>`).join('')}</tbody></table></div></div>
+  <div><h3>All care requests</h3><div class="tbl"><table><thead><tr><th>ID</th><th>Patient</th><th>Service</th><th>Nurse</th><th>Status</th></tr></thead><tbody>
+  ${S.req.map(r=>`<tr><td>#${r.id}</td><td>${esc(r.who)}</td><td>${r.svc}</td><td>${r.nurse||'—'}</td><td><span class="pill ${r.status==='completed'?'ok':'warn'}">${STEPS[idx(r.status)][1]}</span></td></tr>`).join('')}</tbody></table></div></div>
+  </div></div>`;
+}
+
+/* ---------- About ---------- */
+function about(){return `<div class="about">
+ <div class="panel"><h3>Problem</h3><ul><li>No real-time view of nurse or doctor availability</li><li>No on-demand, verified home nursing channel</li><li>Hospital search by habit, not distance or wait time</li><li>Staff credentials cannot be checked</li><li>No request status or arrival time after submitting</li></ul></div>
+ <div class="panel"><h3>Objectives</h3><ul><li>Cross-platform app for patients, staff and admins</li><li>AI chatbot that guides request submission</li><li>Care requests: drip, injection, wound dressing</li><li>Verified-staff workflow</li><li>Maps for hospital discovery and navigation</li><li>Real-time staff availability</li></ul></div>
+ <div class="panel"><h3>Request lifecycle</h3><div class="flow">${STEPS.map(s=>`<span>${s[1]}</span>`).join('→')}</div>
+ <h3 style="margin-top:10px">Technology</h3><div class="stack"><span>Flutter</span><span>Node.js + Express</span><span>FastAPI</span><span>MySQL</span><span>Socket.IO</span><span>Firebase FCM</span><span>Google Maps</span></div></div>
+</div>`}
+
+/* ---------- Render / events ---------- */
+const ACCOUNTS=[
+ {email:'patient@homeheal.demo',pw:'patient123',role:'patient',label:'Patient',name:'Demo Patient'},
+ {email:'nurse@homeheal.demo',pw:'nurse123',role:'nurse',label:'Nurse',name:'Sana Raza'},
+ {email:'admin@homeheal.demo',pw:'admin123',role:'admin',label:'Hospital admin',name:'East-City Admin'}];
+function loginView(){return `<div class="login"><div><h2>Sign in to HomeHeal</h2><p class="muted" style="margin:6px 0 0">Use one of the demo accounts below. No real accounts are created in this prototype.</p></div>
+ ${S.loginErr?`<div class="err" role="alert">${S.loginErr}</div>`:''}
+ <form id="loginform"><label class="f" for="em">Email<input type="text" id="em" autocomplete="username" value="${esc(S.loginEmail)}" placeholder="you@example.com"></label>
+ <label class="f" for="pw">Password<input type="password" id="pw" autocomplete="current-password" placeholder="Password" style="font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px;width:100%"></label>
+ <button class="btn" type="submit">Sign in</button></form>
+ <div class="demo"><span class="muted">Demo accounts (tap to fill)</span>${ACCOUNTS.map(a=>`<button data-act="fill" data-v="${a.email}"><b>${a.label}</b><code>${a.email} / ${a.pw}</code></button>`).join('')}</div></div>`}
+function render(){
+  const main=$('.main');
+  if(!S.user){$('#tabs').innerHTML='';$('#side').hidden=true;main.style.gridTemplateColumns='minmax(0,1fr)';
+    $('#stage').innerHTML=loginView();
+    $('#loginform').onsubmit=e=>{e.preventDefault();const em=$('#em').value.trim().toLowerCase(),pw=$('#pw').value;
+      const a=ACCOUNTS.find(x=>x.email===em&&x.pw===pw);
+      if(!a){S.loginEmail=em;S.loginErr='Email or password is incorrect. Use one of the demo accounts below.';return render()}
+      S.user=a;S.role=a.role;S.tab=a.role==='patient'?'home':'home';S.loginErr='';S.loginEmail='';log('auth:login',a.label+' signed in');render()};
+    return}
+  $('#side').hidden=false;main.style.gridTemplateColumns='';
+  $('#tabs').innerHTML=[[S.user.role,S.user.label],['about','About']].map(([k,l])=>`<button role="tab" data-act="role" data-v="${k}" aria-selected="${S.role===k}">${l}</button>`).join('')+`<button class="signout" data-act="signout">Sign out</button>`;
+  const ft=document.activeElement&&document.activeElement.id; const nv=$('#notes')&&$('#notes').value; if(nv!=null)S.notes=nv;
+  $('#stage').innerHTML=S.role==='patient'?patient():S.role==='nurse'?nurse():S.role==='admin'?admin():about();
+  $('#side').innerHTML=`<div class="panel"><h3>Live event log</h3><div class="log">${S.log.length?S.log.map(l=>`<div><time>${l.t}</time><b>${l.ev}</b><span>${esc(l.info||'')}</span></div>`).join(''):'<span class="muted">Events from Socket.IO appear here as you use the app.</span>'}</div></div>
+  <div class="panel"><h3>Try this demo flow</h3><ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px"><li>Patient: send a request</li><li>Nurse: accept it, then start travel</li><li>Patient: watch Track update live</li><li>Admin: approve a pending licence</li></ol></div>`;
+  const c=$('#scr'); if(c&&S.tab==='bot')c.scrollTop=c.scrollHeight;
+  const f=$('#chatform'); if(f) f.onsubmit=e=>{e.preventDefault();const q=$('#chatq').value.trim();if(q)ask(q)};
+}
+function setTravel(){clearInterval(S.timer);S.timer=setInterval(()=>{const r=S.req.find(x=>x.status==='enroute');if(!r){clearInterval(S.timer);return}
+  S.travel=Math.min(1,S.travel+.05); render(); if(S.travel>=1)clearInterval(S.timer)},700)}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b)return; const a=b.dataset.act,v=b.dataset.v;
+  if(a==='fill'){const ac=ACCOUNTS.find(x=>x.email===v);S.loginEmail=ac.email;S.loginErr='';render();$('#pw').value=ac.pw;return}
+  if(a==='signout'){log('auth:logout',S.user.label);S.user=null;S.tab='home';return render()}
+  if(a==='role'){S.role=v;S.tab=v==='nurse'?'home':v==='patient'?(S.tab==='profile'?'home':S.tab):S.tab; if(v==='patient'&&!['home','request','track','bot'].includes(S.tab))S.tab='home'}
+  else if(a==='tab')S.tab=v;
+  else if(a==='svc')S.svc=v;
+  else if(a==='submit'){S.notes=$('#notes').value;const r={id:S.nextId++,who:'You (Demo patient)',svc:S.svc,notes:S.notes,status:'pending',nurse:null,mine:true,at:Date.now()};S.req.push(r);S.travel=0;S.notes='';log('request:new','#'+r.id+' '+r.svc);log('fcm:push','nearby verified nurses notified');S.tab='track'}
+  else if(a==='cancel'){S.req=S.req.filter(r=>!r.mine||r.status!=='pending');log('request:cancelled','by patient')}
+  else if(a==='ask')return ask(v);
+  else if(a==='avail'){S.nurseOn=!S.nurseOn;log('staff:availability',ME+' '+(S.nurseOn?'online':'offline'))}
+  else if(a==='accept'){const r=S.req.find(x=>x.id==v);r.status='accepted';r.nurse=ME;log('request:accepted','#'+r.id+' by '+ME);log('fcm:push','patient notified: nurse accepted')}
+  else if(a==='adv'){const r=S.req.find(x=>x.id==v),n=STEPS[idx(r.status)+1][0];r.status=n;log('request:'+n,'#'+r.id);if(n==='enroute'){S.travel=0;setTravel()}if(n==='arrived')S.travel=1}
+  else if(a==='sim'){const r={id:S.nextId++,who:'Example patient (Maryam K.)',svc:'Injection',notes:'Prescription from Dr Ahmed',status:'pending',nurse:null,mine:false,at:Date.now()};S.req.push(r);log('request:new','#'+r.id+' Injection')}
+  else if(a==='ver'||a==='rej'){const l=S.lic.find(x=>x.id==v);l.st=a==='ver'?'verified':'rejected';log(a==='ver'?'staff:verified':'staff:rejected',l.name)}
+  render();
+});
+log('socket:connected','namespace /homeheal');
+render();
+</script>
+</body></html>
